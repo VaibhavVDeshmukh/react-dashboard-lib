@@ -1,51 +1,68 @@
 import React, { useEffect, useRef } from "react";
 import { cn } from "../../utils/cn";
 
+export interface PanelMenuItem {
+  label: string;
+  icon?: React.ReactNode;
+  shortcut?: string;
+  onClick?: () => void;
+  submenu?: PanelMenuItem[];
+}
+
 export function PanelMenu({
   open,
   onOpenChange,
   items,
-  theme = "system", // <- new
+  theme = "system",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  items: Array<{ label: string; icon?: React.ReactNode; onClick: () => void }>;
+  items: PanelMenuItem[];
   theme?: "light" | "dark" | "system";
 }) {
-  const menuRef = useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
-  // Determine active theme (dark/light/system)
+  /** Detect dark mode */
   const isDark =
     theme === "dark" ||
     (theme === "system" &&
       window.matchMedia("(prefers-color-scheme: dark)").matches);
 
-  // Close menu on outside click
+  /** Close on outside click */
   useEffect(() => {
-    function handleOutside(e: MouseEvent) {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
         onOpenChange(false);
       }
     }
-    if (open) document.addEventListener("mousedown", handleOutside);
-    return () => document.removeEventListener("mousedown", handleOutside);
+    if (open) document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
   }, [open, onOpenChange]);
+
+  /** Close on ESC key */
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onOpenChange(false);
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, []);
 
   return (
     <div
-      ref={menuRef}
+      ref={ref}
       className={cn("relative select-none", isDark ? "dark" : "light")}
     >
       {/* Kebab Button */}
       <button
-        onClick={() => onOpenChange(!open)}
         className={cn(
-          "px-1 py-1 rounded transition-colors",
-          // DARK
-          "dark:text-gray-300 dark:hover:text-white dark:hover:bg-[#3A3A3A]",
-          // LIGHT
-          "text-gray-700 hover:text-black hover:bg-gray-200"
+          "react-draggable-cancel px-1 py-[2px] rounded text-gray-700 dark:text-gray-300",
+          "hover:bg-gray-200 dark:hover:bg-[#3A3A3A] transition-colors"
         )}
+        onClick={(e) => {
+          e.stopPropagation();
+          onOpenChange(!open);
+        }}
       >
         <svg width="16" height="16" className="fill-current">
           <circle cx="8" cy="3" r="1.5" />
@@ -54,44 +71,69 @@ export function PanelMenu({
         </svg>
       </button>
 
-      {/* MENU LIST */}
+      {/* MENU */}
       {open && (
         <div
           className={cn(
-            "absolute right-0 mt-2 z-50 py-1 rounded-md shadow-lg",
-            "w-44 sm:w-48 min-w-max transition-all",
-            // DARK
-            "dark:bg-[#2C2C2C] dark:border dark:border-[#3A3A3A] dark:text-gray-200",
-            // LIGHT
-            "bg-white border border-gray-300 text-gray-800"
+            "absolute right-0 mt-2 z-50 w-56 py-1 rounded-lg shadow-xl border",
+            "bg-white text-gray-800 border-gray-300",
+            "dark:bg-[#1E1E1E] dark:text-gray-200 dark:border-[#333]",
+            "transition-all"
           )}
         >
           {items.map((item, idx) => (
-            <button
+            <MenuItem
               key={idx}
-              onClick={() => {
-                item.onClick();
-                onOpenChange(false);
-              }}
-              className={cn(
-                "flex items-center gap-2 w-full px-3 py-2 text-left text-sm",
-                "transition-colors",
-
-                // DARK
-                "dark:hover:bg-[#3A3A3A] dark:text-gray-200",
-
-                // LIGHT
-                "hover:bg-gray-200 text-gray-800"
-              )}
-            >
-              {item.icon ? (
-                <span className="text-lg">{item.icon}</span>
-              ) : null}
-              {item.label}
-            </button>
+              item={item}
+              onClose={() => onOpenChange(false)}
+            />
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/* ---------------------- Menu Item Component ---------------------- */
+
+function MenuItem({
+  item,
+  onClose,
+}: {
+  item: PanelMenuItem;
+  onClose: () => void;
+}) {
+  return (
+    <button
+      className={cn(
+        "w-full text-left px-3 py-2 text-sm flex items-center justify-between",
+        "hover:bg-gray-200 dark:hover:bg-[#2A2A2A] transition-colors"
+      )}
+      onClick={() => {
+        item.onClick?.();
+        onClose();
+      }}
+    >
+      <div className="flex items-center gap-2">
+        {/* Left Icon */}
+        {item.icon && <span className="text-base opacity-90">{item.icon}</span>}
+        <span className="truncate">{item.label}</span>
+      </div>
+
+      {/* Right Shortcut */}
+      {item.shortcut && (
+        <span
+          className="text-xs px-2 py-[1px] rounded border 
+              dark:border-gray-600 border-gray-400 opacity-80"
+        >
+          {item.shortcut}
+        </span>
+      )}
+
+      {/* Submenu arrow */}
+      {item.submenu && (
+        <span className="ml-2 opacity-60">›</span> // (or use an icon)
+      )}
+    </button>
   );
 }

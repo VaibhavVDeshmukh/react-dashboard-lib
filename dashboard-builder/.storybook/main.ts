@@ -1,12 +1,17 @@
+import type { StorybookConfig } from "@storybook/react-vite";
 import postcss from "postcss";
-import { StorybookConfig } from "@storybook/react-vite";
 
 const config: StorybookConfig = {
   stories: [
-    "../src/**/*.stories.mdx",
-    "../src/**/*.stories.@(js|jsx|ts|tsx)"
+    "../src/**/*.mdx",                      // MDX docs pages
+    "../src/**/*.stories.@(ts|tsx|js|jsx)" // CSF stories
   ],
+
   addons: [
+    "@storybook/addon-essentials",
+    "@storybook/addon-interactions",
+
+    // Tailwind/PostCSS support
     {
       name: "@storybook/addon-postcss",
       options: {
@@ -14,12 +19,16 @@ const config: StorybookConfig = {
           implementation: postcss,
         },
       },
-    },
-    "@storybook/addon-essentials",
+    }
   ],
+
   framework: {
     name: "@storybook/react-vite",
     options: {},
+  },
+
+  docs: {
+    defaultName: "Documentation", // REQUIRED for MDX + Vite
   },
 };
 

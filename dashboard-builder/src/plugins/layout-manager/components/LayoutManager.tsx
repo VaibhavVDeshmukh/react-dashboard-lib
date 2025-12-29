@@ -1,163 +1,143 @@
-// components/LayoutManager.tsx
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLayoutManager } from "../hooks/useLayoutManager";
-import { PanelContainer } from "./PanelContainer";
-import { DragLayer } from "./DragLayer";
-import { gridToPx } from "../utils/grid";
+import React, { useCallback, useEffect, useState } from "react";
+import {
+  Responsive,
+  WidthProvider,
+  Layout,
+  Layouts,
+} from "react-grid-layout";
 
-export function LayoutManagerUI({
-  initialItems,
-  cols = { desktop: 12, tablet: 8, mobile: 4 },
-  rowHeight = { desktop: 40, tablet: 36, mobile: 32 },
-  gap = 8,
-  adapter,
-}: {
-  initialItems: any[];
-  cols?: { desktop: number; tablet: number; mobile: number };
-  rowHeight?: { desktop: number; tablet: number; mobile: number };
-  gap?: number;
-  adapter?: any;
-}) {
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [width, setWidth] = useState(1200);
+const ResponsiveGrid = WidthProvider(Responsive);
 
-  const lm = useLayoutManager({ adapter, initial: { items: initialItems, cols, rowHeight, gap, breakpoint: "desktop" } });
+/** Strong generic T = panel data payload */
+export interface GenericPanelData<T = unknown> {
+  id: string;
+  x?: number;
+  y?: number;
+  w?: number;
+  h?: number;
+  data?: T;
+}
 
-  // measure container
+export interface LayoutManagerProps<T = unknown> {
+  /** Panels to render */
+  initialPanels: GenericPanelData<T>[];
+
+  /** Required: how to render panel contents */
+  renderPanel: (panel: GenericPanelData<T>) => React.ReactNode;
+
+  /** Optional wrapper (PanelChrome, Card, etc) */
+  panelWrapper?: (
+    panel: GenericPanelData<T>,
+    content: React.ReactNode
+  ) => React.ReactNode;
+
+  /** Drag / Resize mode */
+  editMode?: boolean;
+
+  /** When RGL layout updates */
+  onLayoutChange?: (layout: Layout[]) => void;
+
+  /** When user adds a panel (drag-drop or custom logic) */
+  onPanelAdd?: (panel: GenericPanelData<T>) => void;
+
+  /** When panel removed */
+  onPanelRemove?: (id: string) => void;
+
+  /** Breakpoint system */
+  breakpoints?: { [key: string]: number };
+  cols?: { [key: string]: number };
+
+  rowHeight?: number;
+  margin?: [number, number];
+}
+
+/**
+ * ULTRA-GENERIC RESPONSIVE LAYOUT MANAGER
+ * Works with ANY dashboard widgets + ANY UX system.
+ */
+export function LayoutManager<T = unknown>({
+  initialPanels,
+  renderPanel,
+  panelWrapper,
+  editMode = true,
+  onLayoutChange,
+  onPanelAdd,
+  onPanelRemove,
+
+  // Grid defaults
+  rowHeight = 40,
+  margin = [8, 8],
+  breakpoints = { lg: 1200, md: 996, sm: 768, xs: 480 },
+  cols = { lg: 12, md: 10, sm: 6, xs: 4 },
+}: LayoutManagerProps<T>) {
+  const [layout, setLayout] = useState<Layout[]>([]);
+
+  /** Sync initialPanels → RGL layout */
   useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const obs = new ResizeObserver(() => {
-      setWidth(el.clientWidth);
-    });
-    obs.observe(el);
-    setWidth(el.clientWidth);
-    return () => obs.disconnect();
-  }, []);
+    const next = initialPanels.map((p, i) => ({
+      i: p.id,
+      x: p.x ?? (i % 3) * 4,
+      y: p.y ?? Math.floor(i / 3) * 4,
+      w: p.w ?? 4,
+      h: p.h ?? 4,
+    }));
+    setLayout(next);
+  }, [initialPanels]);
 
-  const colWidth = useMemo(() => {
-    const bp = lm.state.breakpoint;
-    const colsCount = lm.state.cols[bp];
-    return (width - (colsCount - 1) * gap) / colsCount;
-  }, [width, lm.state, gap]);
+  /** Layout updates from RGL */
+  const handleLayoutChange = useCallback(
+    (newLayout: Layout[]) => {
+      setLayout(newLayout);
+      onLayoutChange?.(newLayout);
+    },
+    [onLayoutChange]
+  );
 
-  const toGrid = useCallback((px: number, py: number) => {
-    return {
-      col: Math.round(px / (colWidth + gap)),
-      row: Math.round(py / (lm.state.rowHeight[lm.state.breakpoint] + gap))
-    };
-  }, [colWidth, gap, lm]);
+  /** Panel remove helper */
+  const removePanel = useCallback(
+    (id: string) => {
+      onPanelRemove?.(id);
+      setLayout((prev) => prev.filter((l) => l.i !== id));
+    },
+    [onPanelRemove]
+  );
 
-  // pointer handling for drag: we attach pointermove on pointerdown and drive moveDrag using raf
-  const rafRef = useRef<number | null>(null);
-  const activePointer = useRef<{ x:number;y:number } | null>(null);
+  /** Render all panels */
+  const renderAllPanels = layout.map((item) => {
+    const panel = initialPanels.find((p) => p.id === item.i);
 
-  useEffect(() => {
-    function onPointerMove(e: PointerEvent) {
-      activePointer.current = { x: e.clientX, y: e.clientY };
-      if (rafRef.current === null) {
-        rafRef.current = requestAnimationFrame(() => {
-          if (activePointer.current) {
-            lm.moveDrag(activePointer.current.x, activePointer.current.y, toGrid);
-          }
-          rafRef.current = null;
-        });
-      }
-    }
-    // attach when dragging
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
-  }, [lm, toGrid]);
+    if (!panel) return null; // should not happen
 
-  const onPanelDragStart = useCallback((e: React.PointerEvent, id: string) => {
-    const item = lm.state.items.find(i=>i.id===id)!;
-    item && lm.startDrag({
-      id,
-      mode: 'move',
-      startPx: e.clientX,
-      startPy: e.clientY,
-      startItem: { ...item }
-    });
-    // set pointer capture
-    (e.target as Element).setPointerCapture(e.pointerId);
-    // attach global move/up to call lm.moveDrag / end
-    function onMove(ev: PointerEvent) {
-      lm.moveDrag(ev.clientX, ev.clientY, toGrid);
-    }
-    function onUp() {
-      lm.endDrag();
-      try { (e.target as Element).releasePointerCapture((e as any).pointerId); } catch {}
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }, [lm, toGrid]);
+    const content = renderPanel(panel);
 
-  const onResizeStart = useCallback((e: React.PointerEvent, id: string, dir: string) => {
-    const item = lm.state.items.find(i=>i.id===id)!;
-    lm.startResize({
-      id,
-      mode: 'resize',
-      dir,
-      startPx: e.clientX,
-      startPy: e.clientY,
-      startItem: { ...item }
-    });
-    (e.target as Element).setPointerCapture(e.pointerId);
-    function onMove(ev: PointerEvent) {
-      // compute delta in grid units (cols/rows)
-      const dx = Math.round((ev.clientX - (e as any).clientX) / (colWidth + gap));
-      const dy = Math.round((ev.clientY - (e as any).clientY) / (lm.state.rowHeight[lm.state.breakpoint] + gap));
-      lm.moveResize(dx, dy);
-    }
-    function onUp() {
-      lm.commit(true);
-      lm.endDrag(); // clear
-      try { (e.target as Element).releasePointerCapture((e as any).pointerId); } catch {}
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onUp);
-    }
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onUp);
-  }, [lm, colWidth, gap]);
+    const wrapped = panelWrapper
+      ? panelWrapper(panel, content)
+      : content;
 
-  // drop new items (example)
-  const onDrop = useCallback((e: React.DragEvent) => {
-    const data = e.dataTransfer.getData('application/json');
-    if (!data) return;
-    const parsed = JSON.parse(data);
-    const rect = containerRef.current!.getBoundingClientRect();
-    const px = e.clientX - rect.left;
-    const py = e.clientY - rect.top;
-    lm.dropNewItem(parsed, px, py, colWidth, lm.state.rowHeight[lm.state.breakpoint], gap);
-  }, [colWidth, gap, lm]);
+    return (
+      <div key={item.i} data-grid={item} className="h-full w-full">
+        {wrapped}
+      </div>
+    );
+  });
 
   return (
-    <div ref={containerRef} onDragOver={(e)=>e.preventDefault()} onDrop={onDrop} className="relative w-full h-full bg-red-500">
-      {/* panels */}
-      {lm.state.items.map(item => {
-        const { x, y } = gridToPx(item.x, item.y, colWidth, lm.state.rowHeight[lm.state.breakpoint], gap);
-        const widthPx = item.w * colWidth + (item.w - 1) * gap;
-        const heightPx = item.h * lm.state.rowHeight[lm.state.breakpoint] + (item.h - 1) * gap;
-        return (
-          <div key={item.id} className="absolute transition-all" style={{ left: x, top: y, width: widthPx, height: heightPx }}>
-            <PanelContainer
-              item={item}
-              cols={lm.state.cols[lm.state.breakpoint]}
-              rowHeight={lm.state.rowHeight[lm.state.breakpoint]}
-              gap={gap}
-              editMode={true}
-              onDragStart={onPanelDragStart}
-              onResizeStart={onResizeStart}
-            />
-          </div>
-        )
-      })}
-
-      {/* Drag preview layer (hook up preview from lm state if you keep one) */}
-      <DragLayer visible={false} />
+    <div className="w-full h-full">
+      <ResponsiveGrid
+        className="layout"
+        layouts={{ lg: layout } as Layouts}
+        breakpoints={breakpoints}
+        cols={cols}
+        rowHeight={rowHeight}
+        margin={margin}
+        isDraggable={editMode}
+        isResizable={editMode}
+        draggableHandle=".panel-drag-handle"
+        draggableCancel=".react-draggable-cancel"
+        onLayoutChange={handleLayoutChange}
+      >
+        {renderAllPanels}
+      </ResponsiveGrid>
     </div>
   );
 }

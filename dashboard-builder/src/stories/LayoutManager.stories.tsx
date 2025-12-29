@@ -1,173 +1,229 @@
 import { Meta, StoryObj } from "@storybook/react-vite";
-import { LayoutManagerUI } from "../plugins/layout-manager/components/LayoutManager"; 
+import { fn } from "storybook/test";
 
-/** Sample panels for initial layout */
-const initialItems = [
-  { id: "panel-1", x: 0, y: 0, w: 4, h: 4 },
-  { id: "panel-2", x: 4, y: 0, w: 4, h: 4 },
-  { id: "panel-3", x: 8, y: 0, w: 4, h: 4 },
-  { id: "panel-4", x: 0, y: 4, w: 6, h: 4 },
-  { id: "panel-5", x: 6, y: 4, w: 6, h: 4 },
+import { LayoutManager } from "../plugins/layout-manager/components/LayoutManager";
+import { PanelChrome } from "../plugins/panel-chrome/PanelChrome";
+import "../plugins/visualizations/chartjs-setup";
+// IMPORTANT: register all visualizations
+import "../plugins/visualizations/register-defaults";
+
+import { VisualizationCard } from "../plugins/visualizations/VisualizationCard";
+
+/** Sample panels */
+const initialPanels = [
+  // -----------------------------
+  // 1) STAT PANEL
+  // -----------------------------
+  {
+    id: "panel-stat",
+    x: 0,
+    y: 0,
+    w: 4,
+    h: 4,
+    data: {
+      title: "Stat Example",
+      visualization: "stat",
+      options: { prefix: "", decimals: 2, showSparkline: true },
+      payload: {
+        value: 12.4,
+        sparkline: [1, 3, 5, 7, 6, 4, 2],
+      },
+    },
+  },
+
+  // -----------------------------
+  // 2) TIME SERIES
+  // -----------------------------
+  {
+    id: "panel-timeseries",
+    x: 4,
+    y: 0,
+    w: 4,
+    h: 4,
+    data: {
+      title: "Time Series (CPU Usage)",
+      visualization: "timeSeries",
+      options: {
+        mode: "line",
+        showLegend: true,
+        stacking: false,
+        colors: ["#3B82F6"],
+      },
+      payload: {
+        series: [
+          {
+            label: "CPU Load",
+            points: [
+              [1, 10],
+              [2, 30],
+              [3, 20],
+              [4, 40],
+              [5, 35],
+            ],
+          },
+        ],
+      },
+    },
+  },
+
+  // -----------------------------
+  // 3) TABLE
+  // -----------------------------
+  {
+    id: "panel-table",
+    x: 8,
+    y: 0,
+    w: 4,
+    h: 4,
+    data: {
+      title: "User Table",
+      visualization: "table",
+      options: {},
+      payload: {
+        rows: [
+          ["Name", "Age"],
+          ["Alice", 30],
+          ["Bob", 22],
+          ["Charlie", 27],
+        ],
+      },
+    },
+  },
+
+  // -----------------------------
+  // 4) BAR CHART
+  // -----------------------------
+  {
+    id: "panel-bar",
+    x: 0,
+    y: 4,
+    w: 6,
+    h: 4,
+    data: {
+      title: "Sales by Region",
+      visualization: "bar",
+      options: {
+        label: "Revenue (k$)",
+        colors: ["#60A5FA", "#3B82F6", "#2563EB", "#1D4ED8"],
+      },
+      payload: {
+        labels: ["East", "West", "North", "South"],
+        values: [12, 19, 7, 14],
+      },
+    },
+  },
+
+  // -----------------------------
+  // 5) PIE CHART
+  // -----------------------------
+  {
+    id: "panel-pie",
+    x: 6,
+    y: 4,
+    w: 6,
+    h: 4,
+    data: {
+      title: "Market Share",
+      visualization: "pie",
+      options: {
+        colors: ["#D38A3F", "#3CA0D0", "#1F8A6E", "#7554C6"],
+        donut: true,
+      },
+      payload: {
+        labels: ["Chrome", "Safari", "Firefox", "Edge"],
+        values: [60, 22, 12, 6],
+      },
+    },
+  },
 ];
 
-const meta: Meta<typeof LayoutManagerUI> = {
-  title: "Dashboard/LayoutManager",
-  component: LayoutManagerUI,
+
+const meta: Meta<typeof LayoutManager> = {
+  title: "Dashboard/LayoutManager + Visualizations",
+  component: LayoutManager,
+
   parameters: {
     layout: "fullscreen",
     controls: { expanded: true },
   },
+
   args: {
-    initialItems,
-    cols: {
-      desktop: 12,
-      tablet: 8,
-      mobile: 4,
-    },
-    rowHeight: {
-      desktop: 40,
-      tablet: 36,
-      mobile: 32,
-    },
-    gap: 8,
+    editMode: true,
+    initialPanels,
+    onLayoutChange: fn(),
+
+    /** Renders the visualization for each panel */
+    renderPanel: (panel) => (
+      <VisualizationCard
+        id={panel.id}
+        type={panel.data?.visualization}
+        data={panel.data?.payload}
+        options={panel.data?.options}
+        width="100%"
+        height="100%"
+      />
+    ),
+
+    /** Wrap in PanelChrome */
+    panelWrapper: (panel, content) => (
+      <PanelChrome
+        id={panel.id}
+        title={panel.data?.title}
+        description={`${panel.data?.visualization?.toUpperCase()} panel`}
+        menuItems={[{ label: "Remove", onClick: () => {} }]}
+      >
+        {content}
+      </PanelChrome>
+    ),
   },
+
   argTypes: {
-    cols: {
-      control: false,
-    },
-    rowHeight: {
-      control: false,
-    },
-    gap: {
-      control: { type: "number" },
-    },
+    editMode: { control: "boolean" },
+    initialPanels: { control: false },
+    renderPanel: { control: false },
+    panelWrapper: { control: false },
   },
 };
 
 export default meta;
+type Story = StoryObj<typeof LayoutManager>;
 
-type Story = StoryObj<typeof LayoutManagerUI>;
-
-/* ---------------------------------------------------------
- * DEFAULT VIEW
- * --------------------------------------------------------- */
+/* BASIC GRID */
 export const Default: Story = {
-  name: "Basic Layout",
-};
-
-/* ---------------------------------------------------------
- * EDIT MODE (Drag + Resize)
- * --------------------------------------------------------- */
-export const EditMode: Story = {
-  name: "Edit Mode (Drag & Resize)",
-  parameters: {
-    docs: {
-      description: {
-        story:
-          "Panels can be dragged around the grid and resized. This simulates the dashboard editor experience.",
-      },
-    },
-  },
+  name: "Visualization Panel Layout",
   render: (args) => (
-    <div className="w-full h-[800px]">
-      <LayoutManagerUI {...args} />
+    <div className="w-full h-[900px]">
+      <LayoutManager {...args} />
     </div>
   ),
 };
 
-/* ---------------------------------------------------------
- * RESPONSIVE BREAKPOINTS
- * --------------------------------------------------------- */
-export const ResponsiveBreakpoints: Story = {
-  name: "Responsive Breakpoints",
-  parameters: {
-    docs: {
-      description: {
-        story:
-          "Switch between desktop, tablet, and mobile breakpoints to preview how the layout adapts.",
-      },
-    },
-  },
-  render: (args) => (
-    <div className="w-full h-[700px]">
-      <LayoutManagerUI
-        {...args}
-        cols={{ desktop: 12, tablet: 8, mobile: 4 }}
-      />
-    </div>
-  ),
-};
-
-/* ---------------------------------------------------------
- * SAVE / LOAD USING LOCAL STORAGE
- * --------------------------------------------------------- */
-export const PersistentStorage: Story = {
-  name: "Save & Load Layout (LocalStorage)",
-  parameters: {
-    docs: {
-      description: {
-        story:
-          "The layout persists between reloads using the local persistence adapter. Try moving panels, then reload Storybook.",
-      },
-    },
-  },
+/* Time series panel */
+export const TimeSeriesDemo: Story = {
   args: {
-    adapter: {
-      load: async () => {
-        const raw = localStorage.getItem("storybook-layout");
-        return raw ? JSON.parse(raw) : null;
-      },
-      save: async (data: any) => {
-        // action("layout saved")(data);
-        localStorage.setItem("storybook-layout", JSON.stringify(data));
-      },
-    },
+    initialPanels: [
+      {
+        id: "ts",
+        x: 0, y: 0, w: 12, h: 6,
+        data: {
+          title: "CPU Usage",
+          visualization: "timeSeries",
+          options: { mode: "line", showLegend: true },
+          payload: {
+            series: [
+              { label: "CPU", points: [[1, 20], [2, 40], [3, 30], [4, 50]] }
+            ]
+          }
+        }
+      }
+    ]
   },
-  render: (args) => (
-    <div className="w-full h-[800px]">
-      <LayoutManagerUI {...args} />
-    </div>
-  ),
 };
 
-/* ---------------------------------------------------------
- * DRAG-DROP ADD PANEL
- * (Drop a new panel from outside)
- * --------------------------------------------------------- */
-export const DragDropAddPanel: Story = {
-  name: "Drag & Drop → Add Panel",
-  parameters: {
-    docs: {
-      description: {
-        story:
-          "Drag the green box below into the layout to create a new panel dynamically.",
-      },
-    },
+/* Mixed Visualization Dashboard */
+export const MixedVisualizations: Story = {
+  name: "Mixed Visualization Dashboard",
+  args: {
+    initialPanels,
   },
-  render: (args) => (
-    <div className="flex flex-col gap-4">
-      <div
-        draggable
-        onDragStart={(e) => {
-          e.dataTransfer.setData(
-            "application/json",
-            JSON.stringify({
-              id: "new-panel-" + Math.random().toString(36).slice(2),
-              x: 0,
-              y: 0,
-              w: 4,
-              h: 4,
-            })
-          );
-        }}
-        className="bg-green-600 text-white px-3 py-2 rounded w-fit cursor-grab"
-      >
-        Drag me into the layout →
-      </div>
-
-      <div className="w-full h-[800px] border border-gray-700 rounded">
-        <LayoutManagerUI {...args} />
-      </div>
-    </div>
-  ),
 };
