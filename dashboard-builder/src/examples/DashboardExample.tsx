@@ -21,6 +21,7 @@ interface PanelData {
   visualization: string;
   options: Record<string, any>;
   payload: any;
+  query?: any;
 }
 
 // Sample dashboard data
@@ -106,6 +107,134 @@ const INITIAL_DASHBOARD_PANELS: GenericPanelData<PanelData>[] = [
       payload: {
         value: 42.3,
         sparkline: [45, 44, 43, 43, 42.5, 42.3, 42.3],
+      },
+    },
+  },
+  {
+    id: "gauge-cpu",
+    x: 0,
+    y: 9,
+    w: 3,
+    h: 5,
+    data: {
+      title: "CPU Usage",
+      description: "Current server CPU utilization",
+      visualization: "gauge",
+      options: {
+        min: 0,
+        max: 100,
+        showValue: true,
+        showLabels: true,
+        decimals: 1,
+        needle: false,
+        thresholds: [
+          { value: 0, color: "#10B981" },   // Green (0-60%)
+          { value: 60, color: "#F59E0B" },  // Yellow (60-85%)
+          { value: 85, color: "#EF4444" },  // Red (85-100%)
+        ],
+      },
+      payload: {
+        value: 67.5,
+        min: 0,
+        max: 100,
+        label: "Server Load",
+        unit: "%",
+      },
+    },
+  },
+  {
+    id: "gauge-memory",
+    x: 3,
+    y: 9,
+    w: 3,
+    h: 5,
+    data: {
+      title: "Memory Usage",
+      description: "RAM utilization percentage",
+      visualization: "gauge",
+      options: {
+        min: 0,
+        max: 100,
+        showValue: true,
+        showLabels: true,
+        decimals: 0,
+        needle: true,
+        thresholds: [
+          { value: 0, color: "#3B82F6" },   // Blue (0-70%)
+          { value: 70, color: "#F59E0B" },  // Yellow (70-90%)
+          { value: 90, color: "#EF4444" },  // Red (90-100%)
+        ],
+      },
+      payload: {
+        value: 54,
+        min: 0,
+        max: 100,
+        label: "RAM Used",
+        unit: "%",
+      },
+    },
+  },
+  {
+    id: "gauge-performance",
+    x: 6,
+    y: 9,
+    w: 3,
+    h: 5,
+    data: {
+      title: "Performance Score",
+      description: "Overall system performance rating",
+      visualization: "gauge",
+      options: {
+        min: 0,
+        max: 100,
+        showValue: true,
+        showLabels: true,
+        decimals: 0,
+        needle: false,
+        thresholds: [
+          { value: 0, color: "#EF4444" },   // Red (0-40)
+          { value: 40, color: "#F59E0B" },  // Yellow (40-70)
+          { value: 70, color: "#10B981" },  // Green (70-100)
+        ],
+      },
+      payload: {
+        value: 87,
+        min: 0,
+        max: 100,
+        label: "Score",
+        unit: "pts",
+      },
+    },
+  },
+  {
+    id: "gauge-disk",
+    x: 9,
+    y: 9,
+    w: 3,
+    h: 5,
+    data: {
+      title: "Disk Space",
+      description: "Storage utilization",
+      visualization: "gauge",
+      options: {
+        min: 0,
+        max: 500,
+        showValue: true,
+        showLabels: true,
+        decimals: 0,
+        needle: true,
+        thresholds: [
+          { value: 0, color: "#10B981" },     // Green (0-350GB)
+          { value: 350, color: "#F59E0B" },   // Yellow (350-450GB)
+          { value: 450, color: "#EF4444" },   // Red (450-500GB)
+        ],
+      },
+      payload: {
+        value: 287,
+        min: 0,
+        max: 500,
+        label: "Used Space",
+        unit: "GB",
       },
     },
   },

@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 // components/configurator/PanelConfigurator.tsx
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Save, Database, ChevronRight } from 'lucide-react';
 import { VisualizationConfig } from './configurator.types';
 import { FieldRenderer } from './FieldRenderer';
@@ -31,6 +31,7 @@ export const PanelConfigurator: React.FC<PanelConfiguratorProps> = ({
   const [data, setData] = useState(initialData);
   const [options, setOptions] = useState(initialOptions);
   const [query, setQuery] = useState(initialQuery);
+  const wasOpen = useRef(isOpen);
 
   // Determine if dark mode
   const [isDark, setIsDark] = useState(
@@ -52,12 +53,15 @@ export const PanelConfigurator: React.FC<PanelConfiguratorProps> = ({
   }, [theme]);
 
   useEffect(() => {
-    if (isOpen) {
+    if (isOpen && !wasOpen.current) {
+      // Modal just opened - initialize with props
       setData(initialData);
       setOptions(initialOptions);
       setQuery(initialQuery);
+      setActiveTab('data'); // Reset to first tab
     }
-  }, [isOpen, initialData, initialOptions, initialQuery]);
+    wasOpen.current = isOpen;
+  }, [isOpen]);
 
   const handleDataChange = (key: string, value: any) => {
     setData((prev: any) => ({ ...prev, [key]: value }));
